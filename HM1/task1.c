@@ -1,7 +1,7 @@
 #include <stdio.h>
-#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 #include <time.h>
 #include <math.h>
 
@@ -9,13 +9,9 @@ int thread_count;
 int npoints;
 int npoints_count;
 
-double rand_double() {
-    return (double)rand()/(double)(RAND_MAX/2) - 4;
-}
-
 const double xmin = -2.0, xmax = 1.0;
 const double ymin = -1.5, ymax = 1.5;
-const int    max_iter = 1000;
+int    max_iter = 1000;
 
 pthread_mutex_t mutex;
 double* ansX;
@@ -25,23 +21,19 @@ int in_mandelbrot(double cr, double ci)
 {
     double zr = 0.0;   // Re(z)
     double zi = 0.0;   // Im(z) 
-    const int    max_iter = 1000;
-    const double escape_radius_sq = 4.0;   // радиус убегания R = 2, R^2 = 4
 
     for (int i = 0; i < max_iter; ++i) {
         double zr2 = zr * zr;
         double zi2 = zi * zi;
 
         // |z|^2 = zr^2 + zi^2 > 4 точка не подходит
-        if (zr2 + zi2 > escape_radius_sq)
+        if (zr2 + zi2 > 4.0) { // радиус убегания R = 2, R^2 = 4
             return 0;
+        }
 
         // z = z^2 + c,  где z^2 = (zr + i*zi)^2 = (zr^2 - zi^2) + i*(2*zr*zi)
-        double new_zr = zr2 - zi2 + cr;
-        double new_zi = 2.0 * zr * zi + ci;
-
-        zr = new_zr;
-        zi = new_zi;
+        zi = 2.0 * zr * zi + ci;
+        zr = zr2 - zi2 + cr;
     }
 
     return 1;
@@ -78,14 +70,15 @@ void* routine(void* rank) {
 }
 
 int main(int argc, char* argv[]) {
-    srand(time(NULL));
     thread_count = strtol(argv[1], NULL, 10);
     npoints = strtol(argv[2], NULL, 10);
+    if (argc > 3) {
+        max_iter = strtol(argv[3], NULL, 10);
+    }
     ansX = malloc(npoints * sizeof(double));
     ansY = malloc(npoints * sizeof(double));
     pthread_t* thread_handles = malloc(thread_count * sizeof(pthread_t));
     pthread_mutex_init(&mutex, NULL);
-    double need_cells = (double)npoints / 0.05;
     for (long i = 0; i < thread_count; ++i) {
         int err = pthread_create(&thread_handles[i], NULL, routine, (void*) i);
         if (err != 0) {

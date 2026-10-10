@@ -10,3 +10,8 @@ task1: task1.c
 	mkdir -p build
 	gcc -o build/task1 -lpthread -O3 task1.c
 	cp generate.py build/
+
+task1_orig: task1_orig.c
+	mkdir -p build
+	gcc -o build/task1_orig -lpthread -O3 task1_orig.c
+	cp generate.py build/
