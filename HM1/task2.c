@@ -82,21 +82,15 @@ void* routine(void* rank) {
             }
         }
 
-        barier();
+        barier(); 
 
         for (int i = force_start; i < force_end; i++) {
             force_x[i] = 0;
             force_y[i] = 0;
-
             for (int j = 0; j < thread_count; j++) {
                 force_x[i] += local_force_x[j * num_particles + i];
                 force_y[i] += local_force_y[j * num_particles + i];
             }
-        }
-
-        barier();
-
-        for (int i = force_start; i < force_end; i++) {
             particles[i].x += particles[i].vx;
             particles[i].y += particles[i].vy;
             particles[i].vx += force_x[i] / particles[i].m;
@@ -110,8 +104,7 @@ void* routine(void* rank) {
             if (out != NULL) {
                 fprintf(out, "%d", t);
                 for (int i = 0; i < num_particles; i++) {
-                    fprintf(out, ", %lf, %lf",
-                            particles[i].x, particles[i].y);
+                    fprintf(out, ", %lf, %lf", particles[i].x, particles[i].y);
                 }
                 fprintf(out, "\n");
             }
@@ -144,6 +137,7 @@ int main(int argc, char* argv[]) {
     pthread_mutex_init(&mutex, NULL);
     local_force_x = calloc(thread_count * num_particles, sizeof(double));
     local_force_y = calloc(thread_count * num_particles, sizeof(double));
+    
     force_x = calloc(num_particles, sizeof(double));
     force_y = calloc(num_particles, sizeof(double));
 
