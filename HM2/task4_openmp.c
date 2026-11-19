@@ -176,7 +176,7 @@ double van_der_corput_fast(uint32_t bits) {
 
 double monte_carlo_sobol(Option o, uint64_t n, uint64_t threads) {
     double sum = 0.0;
-    #pragma omp parallel for num_threads(threads) reduction(+:sum)
+    #pragma omp parallel for num_threads(threads) reduction(+:sum) schedule(static)
     for (uint64_t i = 0; i < n; i++) {
         double u_n = van_der_corput_fast((uint32_t)(i + 1));
         double z_i = ltqnorm(u_n);
@@ -185,9 +185,29 @@ double monte_carlo_sobol(Option o, uint64_t n, uint64_t threads) {
     return exp(-o.r*o.T) * sum / (double)n;
 }
 
+double generate_standard_normal(unsigned int *seed) {
+    double u1 = ((double)rand_r(seed) + 1.0) / ((double)RAND_MAX + 1.0);
+    double u2 = ((double)rand_r(seed) + 1.0) / ((double)RAND_MAX + 1.0);
+    return sqrt(-2.0 * log(u1)) * cos(2.0 * M_PI * u2);
+}
+
+double monte_carlo_default(Option o, uint64_t n, uint64_t threads) {
+    double sum = 0.0;
+    #pragma omp parallel num_threads(threads) reduction(+:sum)
+    {
+        unsigned int seed = (unsigned int)(time(NULL) ^ (omp_get_thread_num() * 2654435761u));
+        #pragma omp for schedule(static)
+        for (uint64_t i = 0; i < n; i++) {
+            double z_i = generate_standard_normal(&seed);
+            sum += fmax(o.S0 * exp((o.r - o.sigma*o.sigma/2.0)*o.T + o.sigma*sqrt(o.T)*z_i) - o.K, 0.0);
+        }
+    }
+    return exp(-o.r*o.T) * sum / (double)n;
+}
+
 int main(int argc, char* argv[]) {
     if (argc > 3) {
-        printf("Using: ./task4_single <N> <threads_count>\n");
+        printf("Using: ./task4_openmp <N> <threads_count>\n");
         return 1;
     }
 
@@ -195,13 +215,13 @@ int main(int argc, char* argv[]) {
     uint64_t threads_count = strtol(argv[2], NULL, 10);
     double start, finish;
 
-    Option option = {
-        100.0,  // S0 - начальная цена акции
-        100.0,  // K - цена исполнения
-        0.05,   // r - процентная ставка
-        0.2,    // sigma - волатильность
-        1.0     // T - время до исполнения
-    };
+    double s0, K, r, sigma, T;
+    scanf("%lf", &s0);     // S0 - начальная цена акции
+    scanf("%lf", &K);      // K - цена исполнения
+    scanf("%lf", &r);      // r - процентная ставка
+    scanf("%lf", &sigma);  // sigma - волатильность
+    scanf("%lf", &T);      // T - время до исполнения 
+    Option option = {s0, K, r, sigma, T};
     
     start = omp_get_wtime();
     double ans = black_scholes(option);
@@ -218,6 +238,12 @@ int main(int argc, char* argv[]) {
     start = omp_get_wtime();
     ans = monte_carlo_sobol(option, attempts, threads_count);
     printf("Sobol price: %.9f\n", ans);
+    finish = omp_get_wtime();
+    printf("Elapsed time = %e seconds\n\n", finish - start);
+
+    start = omp_get_wtime();
+    ans = monte_carlo_default(option, attempts, threads_count);
+    printf("Default_std_normal price: %.9f\n", ans);
     finish = omp_get_wtime();
     printf("Elapsed time = %e seconds\n", finish - start);
 
